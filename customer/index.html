@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book a Table - Creator Restaurant</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <a href="/" class="logo">🍽️ Creator Restaurant</a>
+      <span class="header-subtitle">Table Reservation</span>
+    </header>
+
+    <!-- Progress Steps -->
+    <div class="progress-bar">
+      <div class="step active" data-step="1">
+        <span class="step-number">1</span>
+        <span class="step-label">Date</span>
+      </div>
+      <div class="step" data-step="2">
+        <span class="step-number">2</span>
+        <span class="step-label">Time & Table</span>
+      </div>
+      <div class="step" data-step="3">
+        <span class="step-number">3</span>
+        <span class="step-label">Details</span>
+      </div>
+      <div class="step" data-step="4">
+        <span class="step-number">4</span>
+        <span class="step-label">Confirm</span>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Step 1: Date Selection -->
+      <section class="form-step active" id="step-1">
+        <h2>Select a Date</h2>
+        <p class="step-description">Choose when you'd like to dine with us</p>
+        
+        <div class="date-picker-container">
+          <input type="date" id="booking-date" class="date-input">
+        </div>
+        
+        <div class="party-size-container">
+          <label for="party-size">Number of Guests</label>
+          <div class="party-size-selector">
+            <button type="button" class="party-btn" data-action="decrease">−</button>
+            <span id="party-size-display">2</span>
+            <button type="button" class="party-btn" data-action="increase">+</button>
+          </div>
+          <input type="hidden" id="party-size" value="2">
+        </div>
+        
+        <button class="btn btn-primary btn-next" data-next="2">Continue</button>
+      </section>
+
+      <!-- Step 2: Time & Table Selection (Combined) -->
+      <section class="form-step" id="step-2">
+        <h2>Select Time & Table</h2>
+        <p class="step-description">Choose your preferred time for <span id="selected-date-display"></span></p>
+        
+        <div class="time-table-container">
+          <!-- Left: Time Selection -->
+          <div class="time-section">
+            <h3>Select Time</h3>
+            <div class="time-slots-container" id="time-slots">
+              <!-- Time slots will be generated here -->
+            </div>
+          </div>
+          
+          <!-- Right: Table Selection (appears after time selected) -->
+          <div class="table-section" id="table-section">
+            <div class="table-placeholder" id="table-placeholder">
+              <span class="placeholder-icon">👈</span>
+              <p>Select a time slot first</p>
+            </div>
+            <div class="table-content" id="table-content" style="display: none;">
+              <h3>Select Table</h3>
+              <div class="table-legend">
+                <span class="legend-item"><span class="dot available"></span> Available</span>
+                <span class="legend-item"><span class="dot booked"></span> Booked</span>
+              </div>
+              <div class="tables-grid" id="tables-grid">
+                <!-- Tables will be generated here -->
+              </div>
+              <div class="selected-table-info" id="selected-table-info" style="display: none;">
+                <h3>✓ Table <span id="selected-table-number"></span></h3>
+                <p><span id="selected-table-capacity"></span> guests • <span id="selected-table-properties"></span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="nav-buttons">
+          <button class="btn btn-secondary btn-back" data-back="1">Back</button>
+          <button class="btn btn-primary btn-next" data-next="3" disabled>Continue</button>
+        </div>
+      </section>
+
+      <!-- Step 3: Customer Details -->
+      <section class="form-step" id="step-3">
+        <h2>Your Details</h2>
+        <p class="step-description">Please provide your contact information</p>
+        
+        <form id="customer-form" class="customer-form">
+          <div class="form-group">
+            <label for="customer-name">Full Name *</label>
+            <input type="text" id="customer-name" required placeholder="Enter your name">
+          </div>
+          
+          <div class="form-group">
+            <label for="customer-email">Email Address *</label>
+            <input type="email" id="customer-email" required placeholder="your@email.com">
+          </div>
+          
+          <div class="form-group">
+            <label for="customer-phone">Phone Number *</label>
+            <input type="tel" id="customer-phone" required placeholder="+95 9 xxx xxx xxx">
+          </div>
+          
+          <div class="form-group">
+            <label for="special-requests">Special Requests (optional)</label>
+            <textarea id="special-requests" rows="3" placeholder="Any dietary requirements, celebrations, etc."></textarea>
+          </div>
+        </form>
+        
+        <div class="nav-buttons">
+          <button class="btn btn-secondary btn-back" data-back="2">Back</button>
+          <button class="btn btn-primary btn-next" data-next="4">Review Booking</button>
+        </div>
+      </section>
+
+      <!-- Step 4: Confirmation -->
+      <section class="form-step" id="step-4">
+        <div id="booking-review" style="display: block;">
+          <h2>Review Your Booking</h2>
+          <p class="step-description">Please confirm your reservation details</p>
+          
+          <div class="booking-summary">
+            <div class="summary-item">
+              <span class="summary-label">📅 Date</span>
+              <span class="summary-value" id="summary-date"></span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">🕐 Time</span>
+              <span class="summary-value" id="summary-time"></span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">👥 Guests</span>
+              <span class="summary-value" id="summary-party"></span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">🪑 Table</span>
+              <span class="summary-value" id="summary-table"></span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">👤 Name</span>
+              <span class="summary-value" id="summary-name"></span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">📧 Email</span>
+              <span class="summary-value" id="summary-email"></span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">📱 Phone</span>
+              <span class="summary-value" id="summary-phone"></span>
+            </div>
+            <div class="summary-item" id="summary-requests-container" style="display: none;">
+              <span class="summary-label">📝 Requests</span>
+              <span class="summary-value" id="summary-requests"></span>
+            </div>
+          </div>
+          
+          <div class="nav-buttons">
+            <button class="btn btn-secondary btn-back" data-back="3">Back</button>
+            <button class="btn btn-primary btn-confirm" id="confirm-booking">Confirm Booking</button>
+          </div>
+        </div>
+        
+        <div id="booking-success" style="display: none;">
+          <div class="success-icon">✅</div>
+          <h2>Booking Confirmed!</h2>
+          <p class="step-description">Your table has been reserved</p>
+          
+          <div class="booking-code-container">
+            <p>Your Booking Code</p>
+            <div class="booking-code" id="booking-code"></div>
+            <button class="btn btn-secondary btn-copy" id="copy-code">📋 Copy Code</button>
+          </div>
+          
+          <div class="booking-summary" id="final-summary">
+            <!-- Will be populated -->
+          </div>
+          
+          <p class="confirmation-note">
+            A confirmation email has been sent to your email address.<br>
+            Please arrive 5 minutes early and show your booking code at the entrance.
+          </p>
+          
+          <a href="/" class="btn btn-primary">Back to Home</a>
+        </div>
+      </section>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading" style="display: none;">
+      <div class="spinner"></div>
+      <p>Processing your booking...</p>
+    </div>
+  </div>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff Dashboard - Creator Restaurant</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="dashboard">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <a href="/" class="logo">🍽️ Creator Restaurant</a>
+        <span class="header-subtitle">Staff Dashboard</span>
+      </div>
+      <div class="header-right">
+        <div class="date-selector">
+          <button class="date-btn" id="prev-day">◀</button>
+          <input type="date" id="dashboard-date">
+          <button class="date-btn" id="next-day">▶</button>
+        </div>
+        <button class="btn btn-refresh" id="refresh-btn">🔄 Refresh</button>
+      </div>
+    </header>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-value" id="stat-available">0</span>
+        <span class="stat-label">Available</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="stat-booked">0</span>
+        <span class="stat-label">Booked</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="stat-occupied">0</span>
+        <span class="stat-label">Occupied</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="stat-occupancy">0%</span>
+        <span class="stat-label">Occupancy</span>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Tables Grid -->
+      <section class="tables-section">
+        <h2>Table Overview</h2>
+        <div class="table-legend">
+          <span class="legend-item"><span class="dot available"></span> Available</span>
+          <span class="legend-item"><span class="dot booked"></span> Booked</span>
+          <span class="legend-item"><span class="dot occupied"></span> Occupied</span>
+        </div>
+        <div class="tables-grid" id="tables-grid">
+          <!-- Tables will be generated here -->
+        </div>
+      </section>
+
+      <!-- Details Panel -->
+      <aside class="details-panel" id="details-panel">
+        <div class="panel-placeholder" id="panel-placeholder">
+          <p>👆 Select a table to view details</p>
+        </div>
+        
+        <div class="panel-content" id="panel-content" style="display: none;">
+          <div class="panel-header">
+            <h3>Table <span id="panel-table-number"></span></h3>
+            <span class="status-badge" id="panel-status"></span>
+          </div>
+          
+          <div class="panel-info">
+            <p><strong>Capacity:</strong> <span id="panel-capacity"></span> guests</p>
+            <p><strong>Features:</strong> <span id="panel-properties"></span></p>
+          </div>
+          
+          <!-- Booking Details (if booked) -->
+          <div class="booking-details" id="booking-details" style="display: none;">
+            <h4>Current Booking</h4>
+            <div class="booking-info">
+              <p><strong>Code:</strong> <span id="booking-code"></span></p>
+              <p><strong>Name:</strong> <span id="booking-name"></span></p>
+              <p><strong>Phone:</strong> <span id="booking-phone"></span></p>
+              <p><strong>Email:</strong> <span id="booking-email"></span></p>
+              <p><strong>Time:</strong> <span id="booking-time"></span></p>
+              <p><strong>Guests:</strong> <span id="booking-party"></span></p>
+              <p id="booking-requests-row" style="display: none;"><strong>Requests:</strong> <span id="booking-requests"></span></p>
+              <p><strong>Status:</strong> <span id="booking-status"></span></p>
+            </div>
+          </div>
+          
+          <!-- Action Buttons -->
+          <div class="panel-actions" id="panel-actions">
+            <!-- Buttons will be generated based on status -->
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Today's Bookings -->
+    <section class="bookings-section">
+      <h2>📅 Bookings for <span id="bookings-date"></span></h2>
+      <div class="bookings-list" id="bookings-list">
+        <!-- Bookings will be generated here -->
+      </div>
+    </section>
+
+    <!-- Walk-in Modal -->
+    <div class="modal" id="walkin-modal" style="display: none;">
+      <div class="modal-content">
+        <h3>Mark as Walk-in</h3>
+        <p>Table <span id="walkin-table-number"></span></p>
+        <form id="walkin-form">
+          <div class="form-group">
+            <label for="walkin-name">Customer Name (optional)</label>
+            <input type="text" id="walkin-name" placeholder="Walk-in customer">
+          </div>
+          <div class="form-group">
+            <label for="walkin-party">Party Size</label>
+            <input type="number" id="walkin-party" min="1" max="20" value="2">
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="walkin-cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary">Confirm Walk-in</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Phone Booking Modal -->
+    <div class="modal" id="phone-booking-modal" style="display: none;">
+      <div class="modal-content">
+        <h3>Phone Booking</h3>
+        <p>Table <span id="phone-table-number"></span></p>
+        <form id="phone-booking-form">
+          <div class="form-group">
+            <label for="phone-customer-name">Customer Name *</label>
+            <input type="text" id="phone-customer-name" required>
+          </div>
+          <div class="form-group">
+            <label for="phone-customer-phone">Phone Number *</label>
+            <input type="tel" id="phone-customer-phone" required>
+          </div>
+          <div class="form-group">
+            <label for="phone-customer-email">Email (optional)</label>
+            <input type="email" id="phone-customer-email">
+          </div>
+          <div class="form-group">
+            <label for="phone-booking-time">Booking Time *</label>
+            <input type="time" id="phone-booking-time" required>
+          </div>
+          <div class="form-group">
+            <label for="phone-party-size">Party Size *</label>
+            <input type="number" id="phone-party-size" min="1" max="20" value="2" required>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="phone-cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Booking</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading" style="display: none;">
+      <div class="spinner"></div>
+      <p>Processing...</p>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
