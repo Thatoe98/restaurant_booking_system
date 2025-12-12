@@ -6,7 +6,6 @@ import {
   fetchTables,
   fetchBookingsForDate,
   createBooking,
-  updateTableStatus,
   updateBookingStatus,
   addAuditLog,
   subscribeToTables,
@@ -36,6 +35,12 @@ async function init() {
   setupModals()
   await loadData()
   setupRealtimeSubscription()
+  
+  // Auto-refresh every minute to update computed statuses
+  setInterval(() => {
+    renderTables()
+    updateStats()
+  }, 60 * 1000) // 1 minute
 }
 
 // Date Selector
@@ -127,38 +132,75 @@ function setupRealtimeSubscription() {
   })
 }
 
-// Render Tables
+// Render Tables - Status computed from bookings, not stored
 function renderTables() {
   const today = new Date().toISOString().split('T')[0]
   const isToday = selectedDate === today
+  const now = new Date()
   
   tablesGrid.innerHTML = tables.map(table => {
-    // Find booking for this table today
+    // Find active booking for this table on selected date
     const tableBooking = bookings.find(b => 
       b.table_id === table.id && 
       b.status !== 'cancelled' && 
       b.status !== 'completed'
     )
     
-    let statusClass = table.status
+    // COMPUTE status dynamically from booking state
+    let computedStatus = 'available'
     let timeDisplay = ''
+    let warningIndicator = ''
     
-    // If there's a confirmed booking, show as booked with time
-    if (tableBooking && tableBooking.status === 'confirmed') {
-      statusClass = 'booked'
-      timeDisplay = formatTime(tableBooking.booking_time)
-    } else if (tableBooking && tableBooking.status === 'checked_in') {
-      statusClass = 'checked-in'
-      timeDisplay = 'Checked In'
+    if (tableBooking) {
+      if (tableBooking.status === 'checked_in') {
+        computedStatus = 'checked-in'
+        timeDisplay = 'Checked In'
+      } else if (tableBooking.status === 'confirmed') {
+        // Check if this booking is currently active (within time window)
+        const bookingStart = new Date(`${selectedDate}T${tableBooking.booking_time}`)
+        const bookingEnd = new Date(bookingStart.getTime() + (tableBooking.duration_minutes || 120) * 60 * 1000)
+        
+        if (isToday) {
+          const minutesUntilBooking = Math.floor((bookingStart - now) / (1000 * 60))
+          const minutesLate = Math.floor((now - bookingStart) / (1000 * 60))
+          
+          if (minutesLate > 30) {
+            // More than 30 mins late = treat as no-show, show as available
+            computedStatus = 'available'
+          } else if (minutesLate >= 15) {
+            // 15-30 mins late = overdue warning
+            computedStatus = 'overdue'
+            timeDisplay = formatTime(tableBooking.booking_time)
+            warningIndicator = `<span class="overdue-warning" title="Overdue by ${minutesLate} mins">⚠️</span>`
+          } else if (minutesLate >= 0) {
+            // Booking time has passed but within grace period
+            computedStatus = 'booked'
+            timeDisplay = formatTime(tableBooking.booking_time)
+          } else if (minutesUntilBooking <= 60) {
+            // Within 1 hour of booking = show as booked
+            computedStatus = 'booked'
+            timeDisplay = formatTime(tableBooking.booking_time)
+          } else {
+            // More than 1 hour away = show as available (for walk-ins)
+            computedStatus = 'upcoming'
+            timeDisplay = formatTime(tableBooking.booking_time)
+          }
+        } else {
+          // Not today - just show booking status
+          computedStatus = 'booked'
+          timeDisplay = formatTime(tableBooking.booking_time)
+        }
+      }
     }
     
     const selected = selectedTable && selectedTable.id === table.id ? 'selected' : ''
     
     return `
-      <div class="table-item ${statusClass} ${selected}" data-id="${table.id}">
+      <div class="table-item ${computedStatus} ${selected}" data-id="${table.id}">
         <span class="table-number">${table.table_number}</span>
         <span class="table-capacity">${table.capacity} guests</span>
         ${timeDisplay ? `<span class="table-time">${timeDisplay}</span>` : ''}
+        ${warningIndicator}
       </div>
     `
   }).join('')
@@ -203,9 +245,9 @@ function showTableDetails(table) {
     b.status !== 'completed'
   )
   
-  // Status badge
+  // Compute status dynamically (same logic as renderTables)
   const statusBadge = document.getElementById('panel-status')
-  let displayStatus = table.status
+  let displayStatus = 'available'
   
   if (tableBooking) {
     if (tableBooking.status === 'checked_in') {
@@ -244,32 +286,27 @@ function showTableDetails(table) {
   renderActionButtons(table, tableBooking)
 }
 
-// Render Action Buttons
+// Render Action Buttons - Based on booking state, not table.status
 function renderActionButtons(table, booking) {
   const actionsContainer = document.getElementById('panel-actions')
   let buttons = ''
   
-  if (table.status === 'available' && !booking) {
-    // Available table - can mark as walk-in or create phone booking
+  if (!booking) {
+    // No booking - can mark as walk-in or create phone booking
     buttons = `
       <button class="btn btn-warning" onclick="openWalkinModal()">👤 Walk-in</button>
       <button class="btn btn-info" onclick="openPhoneBookingModal()">📞 Phone Booking</button>
     `
-  } else if (booking && booking.status === 'confirmed') {
-    // Booked table - can check in or cancel
+  } else if (booking.status === 'confirmed') {
+    // Has confirmed booking - can check in or cancel
     buttons = `
       <button class="btn btn-success" onclick="checkInBooking('${booking.id}')">✅ Check In</button>
       <button class="btn btn-danger" onclick="cancelBooking('${booking.id}')">❌ Cancel Booking</button>
     `
-  } else if (booking && booking.status === 'checked_in') {
+  } else if (booking.status === 'checked_in') {
     // Checked in - can complete
     buttons = `
       <button class="btn btn-primary" onclick="completeBooking('${booking.id}')">🏁 Complete & Free Table</button>
-    `
-  } else if (table.status === 'occupied' && !booking) {
-    // Occupied (walk-in) - can free
-    buttons = `
-      <button class="btn btn-primary" onclick="freeTable(${table.id})">🔓 Free Up Table</button>
     `
   }
   
@@ -312,18 +349,47 @@ function renderBookings() {
   }).join('')
 }
 
-// Update Stats
+// Update Stats - Computed from bookings, not table.status
 function updateStats() {
-  const available = tables.filter(t => t.status === 'available').length
-  const occupied = tables.filter(t => t.status === 'occupied').length
+  const today = new Date().toISOString().split('T')[0]
+  const isToday = selectedDate === today
+  const now = new Date()
   
-  // Count booked based on bookings for today
-  const bookedTableIds = new Set(
-    bookings
-      .filter(b => b.status === 'confirmed' || b.status === 'checked_in')
-      .map(b => b.table_id)
-  )
-  const booked = bookedTableIds.size
+  let available = 0
+  let booked = 0
+  let occupied = 0
+  
+  tables.forEach(table => {
+    const tableBooking = bookings.find(b => 
+      b.table_id === table.id && 
+      b.status !== 'cancelled' && 
+      b.status !== 'completed'
+    )
+    
+    if (!tableBooking) {
+      available++
+    } else if (tableBooking.status === 'checked_in') {
+      occupied++
+    } else if (tableBooking.status === 'confirmed') {
+      if (isToday) {
+        const bookingStart = new Date(`${selectedDate}T${tableBooking.booking_time}`)
+        const minutesUntilBooking = Math.floor((bookingStart - now) / (1000 * 60))
+        const minutesLate = Math.floor((now - bookingStart) / (1000 * 60))
+        
+        if (minutesLate > 30) {
+          // No-show, treat as available
+          available++
+        } else if (minutesUntilBooking > 60) {
+          // Booking more than 1 hour away
+          available++ // Available for walk-ins
+        } else {
+          booked++
+        }
+      } else {
+        booked++
+      }
+    }
+  })
   
   const total = tables.length
   const occupancy = total > 0 ? Math.round(((occupied + booked) / total) * 100) : 0
@@ -413,7 +479,7 @@ window.cancelBooking = async function(bookingId) {
   
   try {
     await updateBookingStatus(bookingId, 'cancelled')
-    await updateTableStatus(selectedTable.id, 'available', null)
+    // Table status computed from bookings - no need to update
     
     // Add audit log
     const booking = bookings.find(b => b.id === bookingId)
@@ -443,7 +509,7 @@ window.completeBooking = async function(bookingId) {
   
   try {
     await updateBookingStatus(bookingId, 'completed')
-    await updateTableStatus(selectedTable.id, 'available', null)
+    // Table status computed from bookings - no need to update
     
     // Add audit log
     await addAuditLog({
@@ -473,15 +539,24 @@ window.freeTable = async function(tableId) {
   loading.style.display = 'flex'
   
   try {
-    await updateTableStatus(tableId, 'available', null)
+    // Find any active booking for this table and complete it
+    const activeBooking = bookings.find(b => 
+      b.table_id === tableId && 
+      (b.status === 'confirmed' || b.status === 'checked_in')
+    )
+    
+    if (activeBooking) {
+      await updateBookingStatus(activeBooking.id, 'completed')
+    }
     
     // Add audit log
     await addAuditLog({
       table_id: tableId,
+      booking_id: activeBooking?.id || null,
       action_type: 'freed',
       action_by: 'Staff',
       notes: 'Table manually freed',
-      previous_status: 'occupied',
+      previous_status: activeBooking?.status || 'unknown',
       new_status: 'available'
     })
     
@@ -496,28 +571,45 @@ window.freeTable = async function(tableId) {
   }
 }
 
-// Handle Walk-in
+// Handle Walk-in - Create a booking record with checked_in status
 async function handleWalkin() {
   loading.style.display = 'flex'
   document.getElementById('walkin-modal').style.display = 'none'
   
   try {
     const customerName = document.getElementById('walkin-name').value || 'Walk-in'
-    const partySize = document.getElementById('walkin-party').value
+    const partySize = parseInt(document.getElementById('walkin-party').value) || 2
     
-    await updateTableStatus(selectedTable.id, 'occupied', null)
+    // Create a walk-in booking (immediately checked in)
+    const now = new Date()
+    const bookingTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
+    
+    const booking = await createBooking({
+      tableId: selectedTable.id,
+      customerName: customerName,
+      customerEmail: 'walkin@restaurant.local',
+      customerPhone: 'Walk-in',
+      bookingDate: selectedDate,
+      bookingTime: bookingTime,
+      partySize: partySize,
+      specialRequests: 'Walk-in customer'
+    })
+    
+    // Immediately check in the booking
+    await updateBookingStatus(booking.id, 'checked_in')
     
     // Add audit log
     await addAuditLog({
       table_id: selectedTable.id,
-      action_type: 'occupied',
+      booking_id: booking.id,
+      action_type: 'walk_in',
       action_by: 'Staff',
       notes: `Walk-in: ${customerName} (${partySize} guests)`,
       previous_status: 'available',
-      new_status: 'occupied'
+      new_status: 'checked_in'
     })
     
-    showToast('Table marked as occupied', 'success')
+    showToast('Walk-in checked in successfully', 'success')
     await loadData()
     
     // Clear form
@@ -525,7 +617,7 @@ async function handleWalkin() {
     
   } catch (error) {
     console.error('Walk-in error:', error)
-    showToast('Failed to mark walk-in', 'error')
+    showToast('Failed to process walk-in', 'error')
   } finally {
     loading.style.display = 'none'
   }
@@ -560,8 +652,7 @@ async function handlePhoneBooking() {
       status: 'confirmed'
     })
     
-    // Update table status
-    await updateTableStatus(selectedTable.id, 'booked', booking.id)
+    // Table status computed from bookings - no need to update
     
     // Add audit log
     await addAuditLog({

@@ -121,22 +121,13 @@ export async function createBooking(bookingData) {
   return data
 }
 
-// Update table status
+// Update table status - NO LONGER NEEDED
+// Table status is now computed dynamically from bookings
 export async function updateTableStatus(tableId, status, bookingId = null) {
-  const updateData = { status }
-  if (bookingId !== undefined) {
-    updateData.current_booking_id = bookingId
-  }
-  
-  const { data, error } = await supabase
-    .from('tables')
-    .update(updateData)
-    .eq('id', tableId)
-    .select()
-    .single()
-  
-  if (error) throw error
-  return data
+  // This function is now a no-op
+  // Status is computed in the frontend based on active bookings
+  console.log('updateTableStatus is deprecated - status computed from bookings')
+  return { id: tableId }
 }
 
 // Update booking status

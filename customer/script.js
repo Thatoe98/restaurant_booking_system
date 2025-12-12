@@ -7,7 +7,6 @@ import {
   fetchTables,
   fetchBookingsForDate,
   createBooking,
-  updateTableStatus,
   subscribeToTables
 } from '../src/supabase.js'
 
@@ -424,8 +423,7 @@ async function confirmBooking() {
       status: 'confirmed'
     })
     
-    // Update table status
-    await updateTableStatus(bookingData.tableId, 'booked', booking.id)
+    // Table status is computed dynamically from bookings - no need to update
     
     // Show success
     showBookingSuccess(bookingCode)
