@@ -12,6 +12,7 @@ import {
 
 // State
 let currentStep = 1
+let selectedFilter = 'all'
 let bookingData = {
   date: null,
   time: null,
@@ -44,6 +45,7 @@ document.addEventListener('DOMContentLoaded', init)
 async function init() {
   setupDatePicker()
   setupPartySizeSelector()
+  setupTableFilters()
   setupNavigation()
   setupFormValidation()
   await loadTables()
@@ -63,6 +65,59 @@ function setupDatePicker() {
   
   dateInput.addEventListener('change', (e) => {
     bookingData.date = e.target.value
+    updateQuickDateButtons()
+  })
+  
+  // Quick date buttons
+  const quickDateButtons = document.querySelectorAll('.quick-date-btn')
+  quickDateButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const offset = parseInt(btn.dataset.offset)
+      const date = new Date()
+      date.setDate(date.getDate() + offset)
+      const dateString = date.toISOString().split('T')[0]
+      dateInput.value = dateString
+      bookingData.date = dateString
+      updateQuickDateButtons()
+    })
+  })
+  
+  updateQuickDateButtons()
+}
+
+function updateQuickDateButtons() {
+  const quickDateButtons = document.querySelectorAll('.quick-date-btn')
+  const selectedDate = dateInput.value
+  
+  quickDateButtons.forEach(btn => {
+    const offset = parseInt(btn.dataset.offset)
+    const date = new Date()
+    date.setDate(date.getDate() + offset)
+    const dateString = date.toISOString().split('T')[0]
+    
+    if (dateString === selectedDate) {
+      btn.classList.add('active')
+    } else {
+      btn.classList.remove('active')
+    }
+  })
+}
+
+// Table Filters Setup
+function setupTableFilters() {
+  const filterButtons = document.querySelectorAll('.filter-btn')
+  filterButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      // Update active state
+      filterButtons.forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      
+      // Update selected filter
+      selectedFilter = btn.dataset.filter
+      
+      // Re-render table grid with filter
+      loadTableGrid()
+    })
   })
 }
 
@@ -283,7 +338,16 @@ async function loadTableGrid() {
     console.error('Error loading bookings:', error)
   }
   
-  tablesGrid.innerHTML = tables.map(table => {
+  // Filter tables based on selected filter
+  let filteredTables = tables
+  if (selectedFilter !== 'all') {
+    filteredTables = tables.filter(table => {
+      const properties = table.properties || []
+      return properties.some(prop => prop.includes(selectedFilter))
+    })
+  }
+  
+  tablesGrid.innerHTML = filteredTables.map(table => {
     // Check if table is available for this date/time
     const isBooked = isTableBooked(table.id, bookingData.date, bookingData.time)
     const isTooSmall = table.capacity < bookingData.partySize

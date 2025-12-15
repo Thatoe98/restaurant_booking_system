@@ -3,6 +3,7 @@ import {
   generateBookingCode,
   formatDate,
   formatTime,
+  getTimeSlots,
   fetchTables,
   fetchBookingsForDate,
   createBooking,
@@ -13,16 +14,19 @@ import {
 } from '../src/supabase.js'
 
 // State
+let currentView = 'menu' // menu, tables, bookings, checkin
 let tables = []
 let bookings = []
-let selectedTable = null
 let selectedDate = new Date().toISOString().split('T')[0]
+let selectedTableFilter = 'all'
+let selectedTableId = null
 
 // DOM Elements
-const dateInput = document.getElementById('dashboard-date')
-const tablesGrid = document.getElementById('tables-grid')
-const bookingsList = document.getElementById('bookings-list')
-const detailsPanel = document.getElementById('details-panel')
+const actionMenu = document.getElementById('action-menu')
+const tablesView = document.getElementById('tables-view')
+const bookingsView = document.getElementById('bookings-view')
+const checkinView = document.getElementById('checkin-view')
+const backBtn = document.getElementById('back-btn')
 const loading = document.getElementById('loading')
 const toast = document.getElementById('toast')
 
@@ -30,326 +34,362 @@ const toast = document.getElementById('toast')
 document.addEventListener('DOMContentLoaded', init)
 
 async function init() {
-  setupDateSelector()
-  setupRefreshButton()
+  await loadTables()
+  setupActionCards()
+  setupBackButton()
+  setupTablesView()
+  setupBookingsView()
+  setupCheckinView()
   setupModals()
-  await loadData()
   setupRealtimeSubscription()
   
-  // Auto-refresh every minute to update computed statuses
-  setInterval(() => {
-    renderTables()
-    updateStats()
-  }, 60 * 1000) // 1 minute
+  // Start clock after everything is set up
+  setTimeout(() => {
+    startClock()
+  }, 100)
 }
 
-// Date Selector
-function setupDateSelector() {
-  dateInput.value = selectedDate
+// Clock
+function startClock() {
+  console.log('Clock started')
+  updateClock()
+  setInterval(updateClock, 1000)
+}
+
+function updateClock() {
+  const now = new Date()
   
-  dateInput.addEventListener('change', async (e) => {
+  // Simple time formatting
+  const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
+  const seconds = String(now.getSeconds()).padStart(2, '0')
+  const timeStr = `${hours}:${minutes}:${seconds}`
+  
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const dateStr = `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}`
+  
+  const timeElement = document.getElementById('current-time')
+  const dateElement = document.getElementById('current-date')
+  
+  console.log('Updating clock:', timeStr, '| Elements found:', !!timeElement, !!dateElement)
+  
+  if (timeElement) {
+    timeElement.textContent = timeStr
+    console.log('Time element updated to:', timeElement.textContent)
+  } else {
+    console.error('Time element not found!')
+  }
+  if (dateElement) {
+    dateElement.textContent = dateStr
+  } else {
+    console.error('Date element not found!')
+  }
+}
+
+// Navigation
+function setupActionCards() {
+  const cards = document.querySelectorAll('.action-card')
+  cards.forEach(card => {
+    card.addEventListener('click', () => {
+      const action = card.dataset.action
+      navigateTo(action)
+    })
+  })
+}
+
+function setupBackButton() {
+  backBtn.addEventListener('click', () => {
+    navigateTo('menu')
+  })
+}
+
+function navigateTo(view) {
+  // Hide all views
+  actionMenu.style.display = 'none'
+  tablesView.style.display = 'none'
+  bookingsView.style.display = 'none'
+  checkinView.style.display = 'none'
+  
+  // Show selected view
+  if (view === 'menu') {
+    actionMenu.style.display = 'flex'
+    backBtn.style.display = 'none'
+    currentView = 'menu'
+  } else if (view === 'tables') {
+    tablesView.style.display = 'block'
+    backBtn.style.display = 'block'
+    currentView = 'tables'
+    loadTablesData()
+  } else if (view === 'bookings') {
+    bookingsView.style.display = 'block'
+    backBtn.style.display = 'block'
+    currentView = 'bookings'
+    loadBookingsData()
+  } else if (view === 'checkin') {
+    checkinView.style.display = 'block'
+    backBtn.style.display = 'block'
+    currentView = 'checkin'
+    document.getElementById('checkin-code').value = ''
+    document.getElementById('booking-details-card').style.display = 'none'
+  }
+}
+
+// Tables View
+function setupTablesView() {
+  const dateInput = document.getElementById('tables-date-input')
+  dateInput.value = selectedDate
+  updateTablesDateDisplay()
+  
+  dateInput.addEventListener('change', (e) => {
     selectedDate = e.target.value
-    await loadData()
+    updateTablesDateDisplay()
+    loadTablesData()
   })
   
-  document.getElementById('prev-day').addEventListener('click', async () => {
+  document.getElementById('tables-prev-day').addEventListener('click', () => {
     const date = new Date(selectedDate)
     date.setDate(date.getDate() - 1)
     selectedDate = date.toISOString().split('T')[0]
     dateInput.value = selectedDate
-    await loadData()
+    updateTablesDateDisplay()
+    loadTablesData()
   })
   
-  document.getElementById('next-day').addEventListener('click', async () => {
+  document.getElementById('tables-next-day').addEventListener('click', () => {
     const date = new Date(selectedDate)
     date.setDate(date.getDate() + 1)
     selectedDate = date.toISOString().split('T')[0]
     dateInput.value = selectedDate
-    await loadData()
+    updateTablesDateDisplay()
+    loadTablesData()
   })
 }
 
-// Refresh Button
-function setupRefreshButton() {
-  document.getElementById('refresh-btn').addEventListener('click', async () => {
-    await loadData()
-    showToast('Data refreshed', 'success')
-  })
+function updateTablesDateDisplay() {
+  document.getElementById('tables-date').textContent = formatDate(selectedDate)
 }
 
-// Load Data
-async function loadData() {
+async function loadTablesData() {
   loading.style.display = 'flex'
-  
   try {
-    tables = await fetchTables()
     bookings = await fetchBookingsForDate(selectedDate)
-    
-    renderTables()
-    renderBookings()
+    renderTablesGrid()
     updateStats()
-    
-    // Update bookings date display
-    document.getElementById('bookings-date').textContent = formatDate(selectedDate)
-    
-    // Clear selection
-    selectedTable = null
-    showPanelPlaceholder()
-    
   } catch (error) {
-    console.error('Error loading data:', error)
+    console.error('Error loading tables data:', error)
     showToast('Failed to load data', 'error')
   } finally {
     loading.style.display = 'none'
   }
 }
 
-// Real-time subscriptions
-function setupRealtimeSubscription() {
-  subscribeToTables((payload) => {
-    console.log('Table update:', payload)
-    const index = tables.findIndex(t => t.id === payload.new.id)
-    if (index !== -1) {
-      tables[index] = payload.new
-    }
-    renderTables()
-    updateStats()
-    
-    // Update panel if this table is selected
-    if (selectedTable && selectedTable.id === payload.new.id) {
-      selectedTable = payload.new
-      showTableDetails(selectedTable)
-    }
-  })
-  
-  subscribeToBookings(async (payload) => {
-    console.log('Booking update:', payload)
-    // Reload bookings for current date
-    bookings = await fetchBookingsForDate(selectedDate)
-    renderBookings()
-    renderTables()
-    updateStats()
-  })
-}
-
-// Render Tables - Status computed from bookings, not stored
-function renderTables() {
+function renderTablesGrid() {
+  const grid = document.getElementById('tables-grid')
   const today = new Date().toISOString().split('T')[0]
   const isToday = selectedDate === today
   const now = new Date()
   
-  tablesGrid.innerHTML = tables.map(table => {
-    // Find active booking for this table on selected date
+  grid.innerHTML = tables.map(table => {
+    // Find active booking for this table
     const tableBooking = bookings.find(b => 
       b.table_id === table.id && 
       b.status !== 'cancelled' && 
       b.status !== 'completed'
     )
     
-    // COMPUTE status dynamically from booking state
+    // Compute status
     let computedStatus = 'available'
     let timeDisplay = ''
-    let warningIndicator = ''
+    let isOverdue = false
+    let minutesLateText = ''
     
     if (tableBooking) {
       if (tableBooking.status === 'checked_in') {
         computedStatus = 'checked-in'
         timeDisplay = 'Checked In'
       } else if (tableBooking.status === 'confirmed') {
-        // Check if this booking is currently active (within time window)
-        const bookingStart = new Date(`${selectedDate}T${tableBooking.booking_time}`)
-        const bookingEnd = new Date(bookingStart.getTime() + (tableBooking.duration_minutes || 120) * 60 * 1000)
+        computedStatus = 'booked'
+        timeDisplay = formatTime(tableBooking.booking_time)
         
+        // Check if overdue (15+ minutes late)
         if (isToday) {
-          const minutesUntilBooking = Math.floor((bookingStart - now) / (1000 * 60))
-          const minutesLate = Math.floor((now - bookingStart) / (1000 * 60))
-          
-          if (minutesLate > 30) {
-            // More than 30 mins late = treat as no-show, show as available
-            computedStatus = 'available'
-          } else if (minutesLate >= 15) {
-            // 15-30 mins late = overdue warning
+          const bookingDateTime = new Date(`${tableBooking.booking_date}T${tableBooking.booking_time}`)
+          const minutesLate = Math.floor((now - bookingDateTime) / (1000 * 60))
+          if (minutesLate >= 15) {
+            isOverdue = true
             computedStatus = 'overdue'
             timeDisplay = formatTime(tableBooking.booking_time)
-            warningIndicator = `<span class="overdue-warning" title="Overdue by ${minutesLate} mins">⚠️</span>`
-          } else if (minutesLate >= 0) {
-            // Booking time has passed but within grace period
-            computedStatus = 'booked'
-            timeDisplay = formatTime(tableBooking.booking_time)
-          } else if (minutesUntilBooking <= 60) {
-            // Within 1 hour of booking = show as booked
-            computedStatus = 'booked'
-            timeDisplay = formatTime(tableBooking.booking_time)
-          } else {
-            // More than 1 hour away = show as available (for walk-ins)
-            computedStatus = 'upcoming'
-            timeDisplay = formatTime(tableBooking.booking_time)
+            minutesLateText = `${minutesLate} min late`
           }
-        } else {
-          // Not today - just show booking status
-          computedStatus = 'booked'
-          timeDisplay = formatTime(tableBooking.booking_time)
         }
       }
     }
     
-    const selected = selectedTable && selectedTable.id === table.id ? 'selected' : ''
-    
     return `
-      <div class="table-item ${computedStatus} ${selected}" data-id="${table.id}">
+      <div class="table-item ${computedStatus}" 
+           data-id="${table.id}"
+           data-number="${table.table_number}"
+           data-booking="${tableBooking ? tableBooking.id : ''}">
         <span class="table-number">${table.table_number}</span>
         <span class="table-capacity">${table.capacity} guests</span>
         ${timeDisplay ? `<span class="table-time">${timeDisplay}</span>` : ''}
-        ${warningIndicator}
+        ${minutesLateText ? `<span class="table-late">⚠️ ${minutesLateText}</span>` : ''}
       </div>
     `
   }).join('')
   
   // Add click handlers
-  tablesGrid.querySelectorAll('.table-item').forEach(item => {
+  grid.querySelectorAll('.table-item').forEach(item => {
     item.addEventListener('click', () => {
-      const tableId = parseInt(item.dataset.id)
-      const table = tables.find(t => t.id === tableId)
-      selectTable(table)
+      showTableActions(item)
     })
   })
 }
 
-// Select Table
-function selectTable(table) {
-  selectedTable = table
+function showTableActions(tableElement) {
+  const tableId = parseInt(tableElement.dataset.id)
+  const tableNumber = tableElement.dataset.number
+  const bookingId = tableElement.dataset.booking
+  const status = tableElement.classList.contains('checked-in') ? 'checked-in' : 
+                 tableElement.classList.contains('overdue') ? 'overdue' :
+                 tableElement.classList.contains('booked') ? 'booked' : 'available'
   
-  // Update visual selection
-  tablesGrid.querySelectorAll('.table-item').forEach(item => {
-    item.classList.toggle('selected', parseInt(item.dataset.id) === table.id)
-  })
-  
-  showTableDetails(table)
-}
-
-// Show Table Details
-function showTableDetails(table) {
-  document.getElementById('panel-placeholder').style.display = 'none'
-  document.getElementById('panel-content').style.display = 'block'
-  
-  // Basic info
-  document.getElementById('panel-table-number').textContent = table.table_number
-  document.getElementById('panel-capacity').textContent = table.capacity
-  document.getElementById('panel-properties').textContent = 
-    (table.properties && table.properties.length > 0) ? table.properties.join(', ') : 'Standard'
-  
-  // Find booking for this table
-  const tableBooking = bookings.find(b => 
-    b.table_id === table.id && 
-    b.status !== 'cancelled' && 
-    b.status !== 'completed'
-  )
-  
-  // Compute status dynamically (same logic as renderTables)
-  const statusBadge = document.getElementById('panel-status')
-  let displayStatus = 'available'
-  
-  if (tableBooking) {
-    if (tableBooking.status === 'checked_in') {
-      displayStatus = 'checked-in'
-    } else if (tableBooking.status === 'confirmed') {
-      displayStatus = 'booked'
+  if (status === 'available') {
+    // Show walk-in modal
+    document.getElementById('walkin-table-number').textContent = tableNumber
+    selectedTableId = tableId
+    document.getElementById('walkin-modal').style.display = 'flex'
+  } else if (status === 'checked-in') {
+    // Show free table modal
+    const booking = bookings.find(b => b.id === bookingId)
+    if (booking) {
+      const table = tables.find(t => t.id === tableId)
+      document.getElementById('free-table-details').innerHTML = `
+        <p><strong>Table:</strong> ${tableNumber}</p>
+        <p><strong>Customer:</strong> ${booking.customer_name}</p>
+        <p><strong>Party Size:</strong> ${booking.party_size} guests</p>
+        <p><strong>Time:</strong> ${formatTime(booking.booking_time)}</p>
+        <p style="margin-top: 16px; color: var(--text-muted);">This will mark the booking as completed and free up the table.</p>
+      `
+      selectedTableId = tableId
+      const confirmBtn = document.getElementById('free-table-confirm')
+      confirmBtn.onclick = () => freeTable(bookingId, tableId)
+      document.getElementById('free-table-modal').style.display = 'flex'
+    }
+  } else if (status === 'overdue') {
+    // Show overdue booking details with cancel option
+    const booking = bookings.find(b => b.id === bookingId)
+    if (booking) {
+      showOverdueBookingModal(booking, tableNumber)
+    }
+  } else if (status === 'booked') {
+    // Show quick check-in modal
+    const booking = bookings.find(b => b.id === bookingId)
+    if (booking) {
+      const table = tables.find(t => t.id === tableId)
+      document.getElementById('quick-checkin-details').innerHTML = `
+        <p><strong>Table:</strong> ${tableNumber}</p>
+        <p><strong>Customer:</strong> ${booking.customer_name}</p>
+        <p><strong>Phone:</strong> ${booking.customer_phone}</p>
+        <p><strong>Time:</strong> ${formatTime(booking.booking_time)}</p>
+        <p><strong>Party Size:</strong> ${booking.party_size} guests</p>
+        <p><strong>Booking Code:</strong> <span style="font-family: monospace; color: var(--primary);">${booking.booking_code}</span></p>
+      `
+      const confirmBtn = document.getElementById('quick-checkin-confirm')
+      confirmBtn.onclick = () => checkInBooking(bookingId)
+      document.getElementById('quick-checkin-modal').style.display = 'flex'
     }
   }
-  
-  statusBadge.textContent = displayStatus.replace('-', ' ')
-  statusBadge.className = `status-badge ${displayStatus}`
-  
-  // Booking details
-  const bookingDetails = document.getElementById('booking-details')
-  if (tableBooking) {
-    bookingDetails.style.display = 'block'
-    document.getElementById('booking-code').textContent = tableBooking.booking_code
-    document.getElementById('booking-name').textContent = tableBooking.customer_name
-    document.getElementById('booking-phone').textContent = tableBooking.customer_phone
-    document.getElementById('booking-email').textContent = tableBooking.customer_email || 'N/A'
-    document.getElementById('booking-time').textContent = formatTime(tableBooking.booking_time)
-    document.getElementById('booking-party').textContent = `${tableBooking.party_size} guests`
-    document.getElementById('booking-status').textContent = tableBooking.status
-    
-    if (tableBooking.special_requests) {
-      document.getElementById('booking-requests-row').style.display = 'block'
-      document.getElementById('booking-requests').textContent = tableBooking.special_requests
-    } else {
-      document.getElementById('booking-requests-row').style.display = 'none'
-    }
-  } else {
-    bookingDetails.style.display = 'none'
+}
+
+async function freeTable(bookingId, tableId) {
+  document.getElementById('free-table-modal').style.display = 'none'
+  loading.style.display = 'flex'
+  try {
+    await updateBookingStatus(bookingId, 'completed')
+    await addAuditLog({
+      table_id: tableId,
+      booking_id: bookingId,
+      action_type: 'completed',
+      action_by: 'Staff',
+      notes: 'Table freed - customer finished'
+    })
+    showToast('Table freed successfully', 'success')
+    loadTablesData()
+  } catch (error) {
+    console.error('Error freeing table:', error)
+    showToast('Failed to free table', 'error')
+  } finally {
+    loading.style.display = 'none'
   }
-  
-  // Action buttons
-  renderActionButtons(table, tableBooking)
 }
 
-// Render Action Buttons - Based on booking state, not table.status
-function renderActionButtons(table, booking) {
-  const actionsContainer = document.getElementById('panel-actions')
-  let buttons = ''
-  
-  if (!booking) {
-    // No booking - can mark as walk-in or create phone booking
-    buttons = `
-      <button class="btn btn-warning" onclick="openWalkinModal()">👤 Walk-in</button>
-      <button class="btn btn-info" onclick="openPhoneBookingModal()">📞 Phone Booking</button>
-    `
-  } else if (booking.status === 'confirmed') {
-    // Has confirmed booking - can check in or cancel
-    buttons = `
-      <button class="btn btn-success" onclick="checkInBooking('${booking.id}')">✅ Check In</button>
-      <button class="btn btn-danger" onclick="cancelBooking('${booking.id}')">❌ Cancel Booking</button>
-    `
-  } else if (booking.status === 'checked_in') {
-    // Checked in - can complete
-    buttons = `
-      <button class="btn btn-primary" onclick="completeBooking('${booking.id}')">🏁 Complete & Free Table</button>
-    `
+async function checkInBooking(bookingId) {
+  document.getElementById('quick-checkin-modal').style.display = 'none'
+  loading.style.display = 'flex'
+  try {
+    await updateBookingStatus(bookingId, 'checked_in')
+    showToast('Customer checked in', 'success')
+    loadTablesData()
+  } catch (error) {
+    console.error('Error checking in:', error)
+    showToast('Failed to check in', 'error')
+  } finally {
+    loading.style.display = 'none'
   }
-  
-  actionsContainer.innerHTML = buttons
 }
 
-// Show panel placeholder
-function showPanelPlaceholder() {
-  document.getElementById('panel-placeholder').style.display = 'block'
-  document.getElementById('panel-content').style.display = 'none'
+function showOverdueBookingModal(booking, tableNumber) {
+  const now = new Date()
+  const bookingTime = new Date(`${booking.booking_date}T${booking.booking_time}`)
+  const minutesLate = Math.floor((now - bookingTime) / (1000 * 60))
+  
+  document.getElementById('overdue-booking-details').innerHTML = `
+    <div style="background: rgba(239, 68, 68, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+      <p style="color: var(--occupied); font-weight: 600;">⚠️ ${minutesLate} minutes late</p>
+    </div>
+    <p><strong>Table:</strong> ${tableNumber}</p>
+    <p><strong>Booking Code:</strong> <span style="font-family: monospace; color: var(--primary);">${booking.booking_code}</span></p>
+    <p><strong>Customer Name:</strong> ${booking.customer_name}</p>
+    <p><strong>Phone:</strong> <a href="tel:${booking.customer_phone}" style="color: var(--primary);">${booking.customer_phone}</a></p>
+    <p><strong>Email:</strong> <a href="mailto:${booking.customer_email}" style="color: var(--primary);">${booking.customer_email || 'N/A'}</a></p>
+    <p><strong>Scheduled Time:</strong> ${formatTime(booking.booking_time)}</p>
+    <p><strong>Party Size:</strong> ${booking.party_size} guests</p>
+    ${booking.special_requests ? `<p><strong>Special Requests:</strong> ${booking.special_requests}</p>` : ''}
+    <p style="margin-top: 16px; color: var(--text-muted); font-size: 0.9rem;">
+      💡 Contact the customer to confirm if they're still coming, or cancel the booking to free up the table.
+    </p>
+  `
+  
+  const cancelBtn = document.getElementById('overdue-cancel-booking')
+  cancelBtn.onclick = () => cancelOverdueBooking(booking.id)
+  
+  document.getElementById('overdue-booking-modal').style.display = 'flex'
 }
 
-// Render Bookings List
-function renderBookings() {
-  const sortedBookings = [...bookings]
-    .filter(b => b.status !== 'cancelled' && b.status !== 'completed')
-    .sort((a, b) => a.booking_time.localeCompare(b.booking_time))
+async function cancelOverdueBooking(bookingId) {
+  document.getElementById('overdue-booking-modal').style.display = 'none'
+  loading.style.display = 'flex'
   
-  if (sortedBookings.length === 0) {
-    bookingsList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No bookings for this date</p>'
-    return
+  try {
+    await updateBookingStatus(bookingId, 'cancelled')
+    await addAuditLog({
+      booking_id: bookingId,
+      action_type: 'cancelled',
+      action_by: 'Staff',
+      notes: 'Booking cancelled - customer overdue/no-show'
+    })
+    showToast('Booking cancelled successfully', 'success')
+    loadTablesData()
+  } catch (error) {
+    console.error('Error cancelling booking:', error)
+    showToast('Failed to cancel booking', 'error')
+  } finally {
+    loading.style.display = 'none'
   }
-  
-  bookingsList.innerHTML = sortedBookings.map(booking => {
-    const table = tables.find(t => t.id === booking.table_id)
-    return `
-      <div class="booking-card ${booking.status}">
-        <div class="booking-card-header">
-          <span class="booking-card-time">${formatTime(booking.booking_time)}</span>
-          <span class="booking-card-table">Table ${table ? table.table_number : '?'}</span>
-        </div>
-        <div class="booking-card-body">
-          <p><strong>${booking.customer_name}</strong></p>
-          <p>📱 ${booking.customer_phone}</p>
-          <p>👥 ${booking.party_size} guests</p>
-          <p>🔖 ${booking.booking_code}</p>
-        </div>
-      </div>
-    `
-  }).join('')
 }
 
-// Update Stats - Computed from bookings, not table.status
 function updateStats() {
   const today = new Date().toISOString().split('T')[0]
   const isToday = selectedDate === today
@@ -371,23 +411,7 @@ function updateStats() {
     } else if (tableBooking.status === 'checked_in') {
       occupied++
     } else if (tableBooking.status === 'confirmed') {
-      if (isToday) {
-        const bookingStart = new Date(`${selectedDate}T${tableBooking.booking_time}`)
-        const minutesUntilBooking = Math.floor((bookingStart - now) / (1000 * 60))
-        const minutesLate = Math.floor((now - bookingStart) / (1000 * 60))
-        
-        if (minutesLate > 30) {
-          // No-show, treat as available
-          available++
-        } else if (minutesUntilBooking > 60) {
-          // Booking more than 1 hour away
-          available++ // Available for walk-ins
-        } else {
-          booked++
-        }
-      } else {
-        booked++
-      }
+      booked++
     }
   })
   
@@ -400,291 +424,439 @@ function updateStats() {
   document.getElementById('stat-occupancy').textContent = `${occupancy}%`
 }
 
-// Modal Setup
-function setupModals() {
-  // Walk-in modal
-  document.getElementById('walkin-cancel').addEventListener('click', () => {
-    document.getElementById('walkin-modal').style.display = 'none'
+// Bookings View
+function setupBookingsView() {
+  document.getElementById('add-booking-btn').addEventListener('click', () => {
+    openPhoneBookingModal()
   })
   
-  document.getElementById('walkin-form').addEventListener('submit', async (e) => {
-    e.preventDefault()
-    await handleWalkin()
+  document.getElementById('clear-filters-btn').addEventListener('click', () => {
+    document.getElementById('booking-filter-date').value = ''
+    document.getElementById('booking-filter-name').value = ''
+    document.getElementById('booking-filter-code').value = ''
+    loadBookingsData()
   })
   
-  // Phone booking modal
-  document.getElementById('phone-cancel').addEventListener('click', () => {
-    document.getElementById('phone-booking-modal').style.display = 'none'
-  })
-  
-  document.getElementById('phone-booking-form').addEventListener('submit', async (e) => {
-    e.preventDefault()
-    await handlePhoneBooking()
-  })
+  // Filter on input
+  document.getElementById('booking-filter-date').addEventListener('change', loadBookingsData)
+  document.getElementById('booking-filter-name').addEventListener('input', loadBookingsData)
+  document.getElementById('booking-filter-code').addEventListener('input', loadBookingsData)
 }
 
-// Global functions for button onclick
-window.openWalkinModal = function() {
-  if (!selectedTable) return
-  document.getElementById('walkin-table-number').textContent = selectedTable.table_number
-  document.getElementById('walkin-modal').style.display = 'flex'
-}
-
-window.openPhoneBookingModal = function() {
-  if (!selectedTable) return
-  document.getElementById('phone-table-number').textContent = selectedTable.table_number
-  
-  // Set default time to now
-  const now = new Date()
-  const hours = now.getHours().toString().padStart(2, '0')
-  const minutes = Math.floor(now.getMinutes() / 30) * 30
-  document.getElementById('phone-booking-time').value = `${hours}:${minutes.toString().padStart(2, '0')}`
-  
-  document.getElementById('phone-booking-modal').style.display = 'flex'
-}
-
-window.checkInBooking = async function(bookingId) {
+async function loadBookingsData() {
   loading.style.display = 'flex'
+  try {
+    // Get filters
+    const filterDate = document.getElementById('booking-filter-date').value
+    const filterName = document.getElementById('booking-filter-name').value.toLowerCase()
+    const filterCode = document.getElementById('booking-filter-code').value.toUpperCase()
+    
+    // Load bookings (if date filter, use it, otherwise load today's)
+    const dateToLoad = filterDate || selectedDate
+    let allBookings = await fetchBookingsForDate(dateToLoad)
+    
+    // Apply filters
+    let filtered = allBookings.filter(b => b.status !== 'completed')
+    
+    if (filterName) {
+      filtered = filtered.filter(b => b.customer_name.toLowerCase().includes(filterName))
+    }
+    
+    if (filterCode) {
+      filtered = filtered.filter(b => b.booking_code.includes(filterCode))
+    }
+    
+    renderBookingsList(filtered)
+  } catch (error) {
+    console.error('Error loading bookings:', error)
+    showToast('Failed to load bookings', 'error')
+  } finally {
+    loading.style.display = 'none'
+  }
+}
+
+function renderBookingsList(bookingsList) {
+  const container = document.getElementById('bookings-list')
   
+  if (bookingsList.length === 0) {
+    container.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 40px;">No bookings found</p>'
+    return
+  }
+  
+  container.innerHTML = bookingsList.map(booking => {
+    const table = tables.find(t => t.id === booking.table_id)
+    const statusBadge = `<span class="status-badge ${booking.status}">${booking.status}</span>`
+    
+    return `
+      <div class="booking-item">
+        <div class="booking-item-info">
+          <h4>${booking.customer_name} - ${booking.booking_code}</h4>
+          <p>📅 ${formatDate(booking.booking_date)} at ${formatTime(booking.booking_time)}</p>
+          <p>🪑 Table ${table ? table.table_number : 'N/A'} • 👥 ${booking.party_size} guests</p>
+          <p>📞 ${booking.customer_phone}</p>
+          ${statusBadge}
+        </div>
+        <div class="booking-item-actions">
+          ${booking.status === 'confirmed' ? `<button class="btn btn-success btn-sm" onclick="checkInBookingById('${booking.id}')">Check In</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="cancelBookingById('${booking.id}')">Cancel</button>
+        </div>
+      </div>
+    `
+  }).join('')
+}
+
+window.checkInBookingById = async function(bookingId) {
+  loading.style.display = 'flex'
   try {
     await updateBookingStatus(bookingId, 'checked_in')
-    
-    // Add audit log
-    const booking = bookings.find(b => b.id === bookingId)
-    await addAuditLog({
-      table_id: selectedTable.id,
-      booking_id: bookingId,
-      action_type: 'checked_in',
-      action_by: 'Staff',
-      notes: `Customer ${booking.customer_name} checked in`,
-      previous_status: 'confirmed',
-      new_status: 'checked_in'
-    })
-    
-    showToast('Customer checked in successfully', 'success')
-    await loadData()
-    
+    showToast('Checked in successfully', 'success')
+    loadBookingsData()
   } catch (error) {
-    console.error('Check-in error:', error)
+    console.error('Error:', error)
     showToast('Failed to check in', 'error')
   } finally {
     loading.style.display = 'none'
   }
 }
 
-window.cancelBooking = async function(bookingId) {
-  if (!confirm('Are you sure you want to cancel this booking?')) return
+window.cancelBookingById = async function(bookingId) {
+  if (!confirm('Cancel this booking?')) return
   
   loading.style.display = 'flex'
-  
   try {
     await updateBookingStatus(bookingId, 'cancelled')
-    // Table status computed from bookings - no need to update
-    
-    // Add audit log
-    const booking = bookings.find(b => b.id === bookingId)
-    await addAuditLog({
-      table_id: selectedTable.id,
-      booking_id: bookingId,
-      action_type: 'cancelled',
-      action_by: 'Staff',
-      notes: `Booking ${booking.booking_code} cancelled`,
-      previous_status: booking.status,
-      new_status: 'cancelled'
-    })
-    
     showToast('Booking cancelled', 'success')
-    await loadData()
-    
+    loadBookingsData()
   } catch (error) {
-    console.error('Cancel error:', error)
+    console.error('Error:', error)
     showToast('Failed to cancel booking', 'error')
   } finally {
     loading.style.display = 'none'
   }
 }
 
-window.completeBooking = async function(bookingId) {
-  loading.style.display = 'flex'
-  
-  try {
-    await updateBookingStatus(bookingId, 'completed')
-    // Table status computed from bookings - no need to update
-    
-    // Add audit log
-    await addAuditLog({
-      table_id: selectedTable.id,
-      booking_id: bookingId,
-      action_type: 'completed',
-      action_by: 'Staff',
-      notes: 'Booking completed, table freed',
-      previous_status: 'checked_in',
-      new_status: 'completed'
-    })
-    
-    showToast('Table freed successfully', 'success')
-    await loadData()
-    
-  } catch (error) {
-    console.error('Complete error:', error)
-    showToast('Failed to complete booking', 'error')
-  } finally {
-    loading.style.display = 'none'
-  }
+// Check-in View
+function setupCheckinView() {
+  document.getElementById('verify-code-btn').addEventListener('click', verifyBookingCode)
+  document.getElementById('checkin-code').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') verifyBookingCode()
+  })
 }
 
-window.freeTable = async function(tableId) {
-  if (!confirm('Are you sure you want to free this table?')) return
+async function verifyBookingCode() {
+  const code = document.getElementById('checkin-code').value.trim().toUpperCase()
+  if (!code) return
   
   loading.style.display = 'flex'
-  
   try {
-    // Find any active booking for this table and complete it
-    const activeBooking = bookings.find(b => 
-      b.table_id === tableId && 
-      (b.status === 'confirmed' || b.status === 'checked_in')
-    )
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('booking_code', code)
+      .single()
     
-    if (activeBooking) {
-      await updateBookingStatus(activeBooking.id, 'completed')
+    if (error || !data) {
+      showToast('Booking not found', 'error')
+      return
     }
     
-    // Add audit log
-    await addAuditLog({
-      table_id: tableId,
-      booking_id: activeBooking?.id || null,
-      action_type: 'freed',
-      action_by: 'Staff',
-      notes: 'Table manually freed',
-      previous_status: activeBooking?.status || 'unknown',
-      new_status: 'available'
-    })
+    const table = tables.find(t => t.id === data.table_id)
+    const card = document.getElementById('booking-details-card')
     
-    showToast('Table freed successfully', 'success')
-    await loadData()
+    card.innerHTML = `
+      <h3>✅ Booking Found</h3>
+      <p><strong>Name:</strong> <span>${data.customer_name}</span></p>
+      <p><strong>Phone:</strong> <span>${data.customer_phone}</span></p>
+      <p><strong>Date:</strong> <span>${formatDate(data.booking_date)}</span></p>
+      <p><strong>Time:</strong> <span>${formatTime(data.booking_time)}</span></p>
+      <p><strong>Table:</strong> <span>${table ? table.table_number : 'N/A'}</span></p>
+      <p><strong>Guests:</strong> <span>${data.party_size}</span></p>
+      <p><strong>Status:</strong> <span class="status-badge ${data.status}">${data.status}</span></p>
+      ${data.status === 'confirmed' ? `
+        <button class="btn btn-primary btn-lg" onclick="confirmCheckin('${data.id}')">
+          ✅ Confirm Check-in
+        </button>
+      ` : data.status === 'checked_in' ? `
+        <p style="color: var(--available); text-align: center; margin-top: 20px;">Already checked in!</p>
+      ` : `
+        <p style="color: var(--text-muted); text-align: center; margin-top: 20px;">Booking is ${data.status}</p>
+      `}
+    `
     
+    card.style.display = 'block'
   } catch (error) {
-    console.error('Free table error:', error)
-    showToast('Failed to free table', 'error')
+    console.error('Error:', error)
+    showToast('Error verifying code', 'error')
   } finally {
     loading.style.display = 'none'
   }
 }
 
-// Handle Walk-in - Create a booking record with checked_in status
-async function handleWalkin() {
+window.confirmCheckin = async function(bookingId) {
   loading.style.display = 'flex'
-  document.getElementById('walkin-modal').style.display = 'none'
+  try {
+    await updateBookingStatus(bookingId, 'checked_in')
+    showToast('Customer checked in successfully!', 'success')
+    document.getElementById('checkin-code').value = ''
+    document.getElementById('booking-details-card').style.display = 'none'
+  } catch (error) {
+    console.error('Error:', error)
+    showToast('Failed to check in', 'error')
+  } finally {
+    loading.style.display = 'none'
+  }
+}
+
+// Modals
+function setupModals() {
+  // Walk-in modal
+  document.getElementById('walkin-cancel').addEventListener('click', () => {
+    document.getElementById('walkin-modal').style.display = 'none'
+  })
+  
+  document.getElementById('walkin-form').addEventListener('submit', handleWalkin)
+  
+  // Quick check-in modal
+  document.getElementById('quick-checkin-cancel').addEventListener('click', () => {
+    document.getElementById('quick-checkin-modal').style.display = 'none'
+  })
+  
+  // Free table modal
+  document.getElementById('free-table-cancel').addEventListener('click', () => {
+    document.getElementById('free-table-modal').style.display = 'none'
+  })
+  
+  // Overdue booking modal
+  document.getElementById('overdue-cancel').addEventListener('click', () => {
+    document.getElementById('overdue-booking-modal').style.display = 'none'
+  })
+  
+  // Phone booking modal
+  document.getElementById('phone-booking-cancel').addEventListener('click', () => {
+    document.getElementById('phone-booking-modal').style.display = 'none'
+  })
+  
+  document.getElementById('phone-booking-form').addEventListener('submit', handlePhoneBooking)
+  
+  // Setup phone booking date/time watchers
+  document.getElementById('phone-booking-date').addEventListener('change', loadPhoneTables)
+  document.getElementById('phone-booking-time').addEventListener('change', loadPhoneTables)
+  document.getElementById('phone-party-size').addEventListener('change', loadPhoneTables)
+  
+  // Setup filter buttons
+  document.querySelectorAll('.preference-filters .filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.preference-filters .filter-btn').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      selectedTableFilter = btn.dataset.filter
+      loadPhoneTables()
+    })
+  })
+}
+
+async function handleWalkin(e) {
+  e.preventDefault()
+  
+  const walkinModal = document.getElementById('walkin-modal')
+  walkinModal.style.display = 'none'
+  loading.style.display = 'flex'
   
   try {
     const customerName = document.getElementById('walkin-name').value || 'Walk-in'
     const partySize = parseInt(document.getElementById('walkin-party').value) || 2
-    
-    // Create a walk-in booking (immediately checked in)
     const now = new Date()
     const bookingTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
     
     const booking = await createBooking({
-      tableId: selectedTable.id,
-      customerName: customerName,
-      customerEmail: 'walkin@restaurant.local',
-      customerPhone: 'Walk-in',
-      bookingDate: selectedDate,
-      bookingTime: bookingTime,
-      partySize: partySize,
-      specialRequests: 'Walk-in customer'
+      booking_code: generateBookingCode(),
+      table_id: selectedTableId,
+      customer_name: customerName,
+      customer_email: 'walkin@restaurant.local',
+      customer_phone: 'Walk-in',
+      booking_date: selectedDate,
+      booking_time: bookingTime,
+      duration_minutes: 120,
+      party_size: partySize,
+      special_requests: 'Walk-in customer',
+      status: 'confirmed'
     })
     
-    // Immediately check in the booking
-    await updateBookingStatus(booking.id, 'checked_in')
-    
-    // Add audit log
-    await addAuditLog({
-      table_id: selectedTable.id,
-      booking_id: booking.id,
-      action_type: 'walk_in',
-      action_by: 'Staff',
-      notes: `Walk-in: ${customerName} (${partySize} guests)`,
-      previous_status: 'available',
-      new_status: 'checked_in'
-    })
+    // Check in immediately
+    if (booking && booking.id) {
+      await updateBookingStatus(booking.id, 'checked_in')
+    }
     
     showToast('Walk-in checked in successfully', 'success')
-    await loadData()
-    
-    // Clear form
     document.getElementById('walkin-form').reset()
-    
+    await loadTablesData()
   } catch (error) {
-    console.error('Walk-in error:', error)
-    showToast('Failed to process walk-in', 'error')
+    console.error('Error adding walk-in:', error)
+    showToast('Failed to add walk-in', 'error')
   } finally {
     loading.style.display = 'none'
   }
 }
 
-// Handle Phone Booking
-async function handlePhoneBooking() {
+function openPhoneBookingModal() {
+  const modal = document.getElementById('phone-booking-modal')
+  const dateInput = document.getElementById('phone-booking-date')
+  const timeSelect = document.getElementById('phone-booking-time')
+  
+  // Set default date to today
+  dateInput.value = new Date().toISOString().split('T')[0]
+  dateInput.min = new Date().toISOString().split('T')[0]
+  
+  // Populate time slots
+  const slots = getTimeSlots()
+  timeSelect.innerHTML = slots.map(slot => `<option value="${slot}">${formatTime(slot)}</option>`).join('')
+  
+  selectedTableFilter = 'all'
+  document.querySelectorAll('.preference-filters .filter-btn').forEach(b => b.classList.remove('active'))
+  document.querySelector('.preference-filters .filter-btn[data-filter="all"]').classList.add('active')
+  
+  modal.style.display = 'flex'
+  loadPhoneTables()
+}
+
+async function loadPhoneTables() {
+  const date = document.getElementById('phone-booking-date').value
+  const time = document.getElementById('phone-booking-time').value
+  const partySize = parseInt(document.getElementById('phone-party-size').value) || 2
+  
+  if (!date || !time) return
+  
+  try {
+    const dayBookings = await fetchBookingsForDate(date)
+    const grid = document.getElementById('phone-tables-grid')
+    
+    // Filter tables
+    let filteredTables = tables
+    if (selectedTableFilter !== 'all') {
+      filteredTables = tables.filter(table => {
+        const properties = table.properties || []
+        return properties.some(prop => prop.includes(selectedTableFilter))
+      })
+    }
+    
+    grid.innerHTML = filteredTables.map(table => {
+      const isBooked = dayBookings.some(b => 
+        b.table_id === table.id && 
+        b.status !== 'cancelled' && 
+        b.status !== 'completed' &&
+        b.booking_time === time
+      )
+      
+      const isTooSmall = table.capacity < partySize
+      const available = !isBooked && !isTooSmall
+      
+      return `
+        <div class="phone-table-item ${available ? 'available' : 'booked'}" 
+             data-id="${table.id}"
+             ${available ? '' : 'disabled'}>
+          <div>${table.table_number}</div>
+          <div style="font-size: 0.8rem;">${table.capacity}p</div>
+        </div>
+      `
+    }).join('')
+    
+    // Add click handlers
+    grid.querySelectorAll('.phone-table-item.available').forEach(item => {
+      item.addEventListener('click', () => {
+        grid.querySelectorAll('.phone-table-item').forEach(t => t.classList.remove('selected'))
+        item.classList.add('selected')
+        selectedTableId = parseInt(item.dataset.id)
+      })
+    })
+  } catch (error) {
+    console.error('Error loading tables:', error)
+  }
+}
+
+async function handlePhoneBooking(e) {
+  e.preventDefault()
+  
+  if (!selectedTableId) {
+    showToast('Please select a table', 'error')
+    return
+  }
+  
   loading.style.display = 'flex'
   document.getElementById('phone-booking-modal').style.display = 'none'
   
   try {
-    const customerName = document.getElementById('phone-customer-name').value
-    const customerPhone = document.getElementById('phone-customer-phone').value
-    const customerEmail = document.getElementById('phone-customer-email').value || `${customerPhone}@phone.booking`
-    const bookingTime = document.getElementById('phone-booking-time').value
-    const partySize = parseInt(document.getElementById('phone-party-size').value)
-    
     const bookingCode = generateBookingCode()
+    const date = document.getElementById('phone-booking-date').value
+    const time = document.getElementById('phone-booking-time').value
+    const partySize = parseInt(document.getElementById('phone-party-size').value)
+    const name = document.getElementById('phone-booking-name').value
+    const phone = document.getElementById('phone-booking-phone').value
+    const requests = document.getElementById('phone-booking-requests').value
     
-    // Create booking
-    const booking = await createBooking({
+    await createBooking({
       booking_code: bookingCode,
-      table_id: selectedTable.id,
-      customer_name: customerName,
-      customer_email: customerEmail,
-      customer_phone: customerPhone,
-      booking_date: selectedDate,
-      booking_time: bookingTime,
+      table_id: selectedTableId,
+      customer_name: name,
+      customer_email: 'phone@restaurant.local',
+      customer_phone: phone,
+      booking_date: date,
+      booking_time: time,
       duration_minutes: 120,
       party_size: partySize,
-      special_requests: 'Phone booking',
+      special_requests: requests || 'Phone booking',
       status: 'confirmed'
     })
     
-    // Table status computed from bookings - no need to update
-    
-    // Add audit log
-    await addAuditLog({
-      table_id: selectedTable.id,
-      booking_id: booking.id,
-      action_type: 'booked',
-      action_by: 'Staff',
-      notes: `Phone booking: ${customerName} (${bookingCode})`,
-      previous_status: 'available',
-      new_status: 'booked'
-    })
-    
-    showToast(`Booking created: ${bookingCode}`, 'success')
-    await loadData()
-    
-    // Clear form
+    showToast(`Booking created! Code: ${bookingCode}`, 'success')
     document.getElementById('phone-booking-form').reset()
+    selectedTableId = null
     
+    if (currentView === 'bookings') {
+      loadBookingsData()
+    }
   } catch (error) {
-    console.error('Phone booking error:', error)
+    console.error('Error:', error)
     showToast('Failed to create booking', 'error')
   } finally {
     loading.style.display = 'none'
   }
 }
 
-// Toast Notification
-function showToast(message, type = 'success') {
+// Utilities
+async function loadTables() {
+  try {
+    tables = await fetchTables()
+  } catch (error) {
+    console.error('Error loading tables:', error)
+  }
+}
+
+function setupRealtimeSubscription() {
+  subscribeToTables((payload) => {
+    const index = tables.findIndex(t => t.id === payload.new.id)
+    if (index !== -1) {
+      tables[index] = payload.new
+    }
+    if (currentView === 'tables') {
+      renderTablesGrid()
+      updateStats()
+    }
+  })
+  
+  subscribeToBookings(async (payload) => {
+    if (currentView === 'tables') {
+      await loadTablesData()
+    } else if (currentView === 'bookings') {
+      await loadBookingsData()
+    }
+  })
+}
+
+function showToast(message, type = 'info') {
   toast.textContent = message
-  toast.className = `toast ${type} show`
+  toast.className = `toast ${type}`
+  toast.style.display = 'block'
   
   setTimeout(() => {
-    toast.classList.remove('show')
+    toast.style.display = 'none'
   }, 3000)
 }

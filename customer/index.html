@@ -41,6 +41,17 @@
         <h2>Select a Date</h2>
         <p class="step-description">Choose when you'd like to dine with us</p>
         
+        <div class="quick-date-buttons">
+          <button type="button" class="quick-date-btn" data-offset="0">
+            <span class="quick-date-icon">📅</span>
+            <span class="quick-date-label">Today</span>
+          </button>
+          <button type="button" class="quick-date-btn" data-offset="1">
+            <span class="quick-date-icon">🌅</span>
+            <span class="quick-date-label">Tomorrow</span>
+          </button>
+        </div>
+        
         <div class="date-picker-container">
           <input type="date" id="booking-date" class="date-input">
         </div>
@@ -79,7 +90,16 @@
               <p>Select a time slot first</p>
             </div>
             <div class="table-content" id="table-content" style="display: none;">
-              <h3>Select Table</h3>
+              <div class="table-header">
+                <h3>Select Table</h3>
+                <div class="table-filters">
+                  <button class="filter-btn active" data-filter="all">All</button>
+                  <button class="filter-btn" data-filter="Garden View">🌿 Garden</button>
+                  <button class="filter-btn" data-filter="Smoking Area">🚬 Smoking</button>
+                  <button class="filter-btn" data-filter="VIP">⭐ VIP</button>
+                  <button class="filter-btn" data-filter="Window Seat">🪟 Window</button>
+                </div>
+              </div>
               <div class="table-legend">
                 <span class="legend-item"><span class="dot available"></span> Available</span>
                 <span class="legend-item"><span class="dot booked"></span> Booked</span>

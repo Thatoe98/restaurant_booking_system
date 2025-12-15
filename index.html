@@ -90,6 +90,108 @@
       font-size: 1rem;
       opacity: 0.8;
     }
+    
+    /* Main Content Layout */
+    .main-content {
+      display: flex;
+      align-items: center;
+      gap: 60px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    /* Onboarding Steps */
+    .onboarding {
+      text-align: left;
+      max-width: 320px;
+    }
+    .onboarding-title {
+      font-size: 1.1rem;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 20px;
+      font-weight: 500;
+    }
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      transition: all 0.3s ease;
+    }
+    .step:hover {
+      background: rgba(255,255,255,0.08);
+      transform: translateX(5px);
+    }
+    .step-icon {
+      font-size: 1.8rem;
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(32, 128, 128, 0.2);
+      border-radius: 12px;
+      flex-shrink: 0;
+    }
+    .step-content h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #fff;
+    }
+    .step-content p {
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.5);
+      line-height: 1.4;
+    }
+    .step-number {
+      position: absolute;
+      top: -6px;
+      left: -6px;
+      width: 20px;
+      height: 20px;
+      background: #208080;
+      border-radius: 50%;
+      font-size: 0.7rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .step {
+      position: relative;
+    }
+    
+    /* Divider */
+    .divider {
+      width: 1px;
+      height: 200px;
+      background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.2), transparent);
+    }
+    
+    @media (max-width: 900px) {
+      .main-content {
+        flex-direction: column-reverse;
+        gap: 40px;
+      }
+      .divider {
+        width: 200px;
+        height: 1px;
+        background: linear-gradient(to right, transparent, rgba(255,255,255,0.2), transparent);
+      }
+      .onboarding {
+        text-align: center;
+      }
+    }
+    
     footer {
       text-align: center;
       padding: 20px;
@@ -179,11 +281,56 @@
     <h1>🍽️ Creator Restaurant</h1>
     <p class="tagline">Premium Dining Experience</p>
     
-    <a href="/customer/" class="btn btn-customer">
-      <span class="btn-icon">📅</span>
-      <span class="btn-title">Book a Table</span>
-      <span class="btn-desc">Reserve your dining experience</span>
-    </a>
+    <div class="main-content">
+      <!-- Onboarding Steps -->
+      <div class="onboarding">
+        <p class="onboarding-title">✨ How to book in 4 easy steps</p>
+        <div class="steps">
+          <div class="step">
+            <span class="step-number">1</span>
+            <span class="step-icon">📅</span>
+            <div class="step-content">
+              <h4>Pick a Date</h4>
+              <p>Choose when you'd like to dine</p>
+            </div>
+          </div>
+          <div class="step">
+            <span class="step-number">2</span>
+            <span class="step-icon">🪑</span>
+            <div class="step-content">
+              <h4>Select Time & Table</h4>
+              <p>Pick your preferred spot</p>
+            </div>
+          </div>
+          <div class="step">
+            <span class="step-number">3</span>
+            <span class="step-icon">📝</span>
+            <div class="step-content">
+              <h4>Enter Your Details</h4>
+              <p>Name, phone & any requests</p>
+            </div>
+          </div>
+          <div class="step">
+            <span class="step-number">4</span>
+            <span class="step-icon">✅</span>
+            <div class="step-content">
+              <h4>Confirm & Done!</h4>
+              <p>Get your booking code instantly</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Divider -->
+      <div class="divider"></div>
+      
+      <!-- Book Button -->
+      <a href="/customer/" class="btn btn-customer">
+        <span class="btn-icon">📅</span>
+        <span class="btn-title">Book a Table</span>
+        <span class="btn-desc">Reserve your dining experience</span>
+      </a>
+    </div>
   </div>
   
   <footer>
