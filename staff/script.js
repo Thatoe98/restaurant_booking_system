@@ -12,6 +12,10 @@ import {
   subscribeToTables,
   subscribeToBookings
 } from '../src/supabase.js'
+import { LanguageManager } from '../src/translations.js'
+
+// Initialize Language Manager
+const langManager = new LanguageManager()
 
 // State
 let currentView = 'menu' // menu, tables, bookings, checkin
@@ -34,6 +38,27 @@ const toast = document.getElementById('toast')
 document.addEventListener('DOMContentLoaded', init)
 
 async function init() {
+  // Apply translations
+  langManager.applyTranslations()
+  
+  // Setup language toggle
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    if (btn.dataset.lang === langManager.getCurrentLanguage()) {
+      btn.classList.add('active')
+    } else {
+      btn.classList.remove('active')
+    }
+    
+    btn.addEventListener('click', () => {
+      const lang = btn.dataset.lang
+      langManager.setLanguage(lang)
+      
+      // Update active state
+      document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+    })
+  })
+  
   await loadTables()
   setupActionCards()
   setupBackButton()

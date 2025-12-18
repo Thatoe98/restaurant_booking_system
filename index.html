@@ -270,52 +270,90 @@
       margin-bottom: 15px;
       display: none;
     }
+    /* Language Toggle */
+    .language-toggle {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      display: flex;
+      gap: 8px;
+      z-index: 1000;
+      background: rgba(0,0,0,0.3);
+      padding: 6px;
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+    }
+    .lang-btn {
+      padding: 8px 16px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: transparent;
+      color: rgba(255,255,255,0.7);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    .lang-btn.active {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border-color: rgba(255,255,255,0.4);
+    }
+    .lang-btn:hover:not(.active) {
+      background: rgba(255,255,255,0.1);
+    }
   </style>
 </head>
 <body>
+  <!-- Language Toggle -->
+  <div class="language-toggle">
+    <button class="lang-btn active" data-lang="en">EN</button>
+    <button class="lang-btn" data-lang="my">မြန်မာ</button>
+  </div>
+
   <header class="header">
-    <button class="staff-login-btn" onclick="showLoginModal()">👤 Staff Login</button>
+    <button class="staff-login-btn" onclick="showLoginModal()" data-i18n="landing.staffLogin">👤 Staff Login</button>
   </header>
 
   <div class="container">
-    <h1>🍽️ Creator Restaurant</h1>
-    <p class="tagline">Premium Dining Experience</p>
+    <h1 data-i18n="landing.title">🍽️ Creator Restaurant</h1>
+    <p class="tagline" data-i18n="landing.tagline">Premium Dining Experience</p>
     
     <div class="main-content">
       <!-- Onboarding Steps -->
       <div class="onboarding">
-        <p class="onboarding-title">✨ How to book in 4 easy steps</p>
+        <p class="onboarding-title" data-i18n="landing.onboarding.title">✨ How to book in 4 easy steps</p>
         <div class="steps">
           <div class="step">
             <span class="step-number">1</span>
             <span class="step-icon">📅</span>
             <div class="step-content">
-              <h4>Pick a Date</h4>
-              <p>Choose when you'd like to dine</p>
+              <h4 data-i18n="landing.step1.title">Pick a Date</h4>
+              <p data-i18n="landing.step1.desc">Choose when you'd like to dine</p>
             </div>
           </div>
           <div class="step">
             <span class="step-number">2</span>
             <span class="step-icon">🪑</span>
             <div class="step-content">
-              <h4>Select Time & Table</h4>
-              <p>Pick your preferred spot</p>
+              <h4 data-i18n="landing.step2.title">Select Time & Table</h4>
+              <p data-i18n="landing.step2.desc">Pick your preferred spot</p>
             </div>
           </div>
           <div class="step">
             <span class="step-number">3</span>
             <span class="step-icon">📝</span>
             <div class="step-content">
-              <h4>Enter Your Details</h4>
-              <p>Name, phone & any requests</p>
+              <h4 data-i18n="landing.step3.title">Enter Your Details</h4>
+              <p data-i18n="landing.step3.desc">Name, phone & any requests</p>
             </div>
           </div>
           <div class="step">
             <span class="step-number">4</span>
             <span class="step-icon">✅</span>
             <div class="step-content">
-              <h4>Confirm & Done!</h4>
-              <p>Get your booking code instantly</p>
+              <h4 data-i18n="landing.step4.title">Confirm & Done!</h4>
+              <p data-i18n="landing.step4.desc">Get your booking code instantly</p>
             </div>
           </div>
         </div>
@@ -327,44 +365,69 @@
       <!-- Book Button -->
       <a href="/customer/" class="btn btn-customer">
         <span class="btn-icon">📅</span>
-        <span class="btn-title">Book a Table</span>
-        <span class="btn-desc">Reserve your dining experience</span>
+        <span class="btn-title" data-i18n="landing.bookButton.title">Book a Table</span>
+        <span class="btn-desc" data-i18n="landing.bookButton.desc">Reserve your dining experience</span>
       </a>
     </div>
   </div>
   
-  <footer>
+  <footer data-i18n="landing.footer">
     © 2025 Creator Restaurant. All rights reserved.
   </footer>
 
   <!-- Staff Login Modal -->
   <div class="modal" id="login-modal">
     <div class="modal-content">
-      <h3>🔐 Staff Login</h3>
-      <p class="error-msg" id="error-msg">Invalid code. Please try again.</p>
-      <input type="password" id="staff-code" placeholder="•••" maxlength="10" autocomplete="off">
+      <h3 data-i18n="landing.modal.title">🔐 Staff Login</h3>
+      <p class="error-msg" id="error-msg" data-i18n="landing.modal.error">Invalid code. Please try again.</p>
+      <input type="password" id="staff-code" data-i18n="landing.modal.placeholder" placeholder="•••" maxlength="10" autocomplete="off">
       <div class="modal-btns">
-        <button class="modal-btn modal-btn-cancel" onclick="hideLoginModal()">Cancel</button>
-        <button class="modal-btn modal-btn-submit" onclick="checkLogin()">Login</button>
+        <button class="modal-btn modal-btn-cancel" onclick="hideLoginModal()" data-i18n="landing.modal.cancel">Cancel</button>
+        <button class="modal-btn modal-btn-submit" onclick="checkLogin()" data-i18n="landing.modal.login">Login</button>
       </div>
     </div>
   </div>
 
-  <script>
-    const STAFF_CODE = '123';
+  <script type="module">
+    import { LanguageManager } from './src/translations.js'
     
-    function showLoginModal() {
+    const STAFF_CODE = '123';
+    const langManager = new LanguageManager()
+    
+    // Apply translations on load
+    langManager.applyTranslations()
+    
+    // Setup language toggle
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      // Set initial active state
+      if (btn.dataset.lang === langManager.getCurrentLanguage()) {
+        btn.classList.add('active')
+      } else {
+        btn.classList.remove('active')
+      }
+      
+      btn.addEventListener('click', () => {
+        const lang = btn.dataset.lang
+        langManager.setLanguage(lang)
+        
+        // Update active state
+        document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'))
+        btn.classList.add('active')
+      })
+    })
+    
+    window.showLoginModal = function() {
       document.getElementById('login-modal').classList.add('show');
       document.getElementById('staff-code').focus();
     }
     
-    function hideLoginModal() {
+    window.hideLoginModal = function() {
       document.getElementById('login-modal').classList.remove('show');
       document.getElementById('staff-code').value = '';
       document.getElementById('error-msg').style.display = 'none';
     }
     
-    function checkLogin() {
+    window.checkLogin = function() {
       const code = document.getElementById('staff-code').value;
       if (code === STAFF_CODE) {
         window.location.href = '/staff/';
@@ -377,12 +440,12 @@
     
     // Enter key to submit
     document.getElementById('staff-code').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') checkLogin();
+      if (e.key === 'Enter') window.checkLogin();
     });
     
     // Click outside to close
     document.getElementById('login-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'login-modal') hideLoginModal();
+      if (e.target.id === 'login-modal') window.hideLoginModal();
     });
   </script>
 </body>

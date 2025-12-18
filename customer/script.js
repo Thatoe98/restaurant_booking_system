@@ -9,6 +9,10 @@ import {
   createBooking,
   subscribeToTables
 } from '../src/supabase.js'
+import { LanguageManager } from '../src/translations.js'
+
+// Initialize Language Manager
+const langManager = new LanguageManager()
 
 // State
 let currentStep = 1
@@ -43,6 +47,36 @@ const loading = document.getElementById('loading')
 document.addEventListener('DOMContentLoaded', init)
 
 async function init() {
+  // Apply translations
+  langManager.applyTranslations()
+  
+  // Setup language toggle
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    if (btn.dataset.lang === langManager.getCurrentLanguage()) {
+      btn.classList.add('active')
+    } else {
+      btn.classList.remove('active')
+    }
+    
+    btn.addEventListener('click', () => {
+      const lang = btn.dataset.lang
+      langManager.setLanguage(lang)
+      
+      // Update active state
+      document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      
+      // Update copy button text if visible
+      const copyBtn = document.getElementById('copy-code')
+      if (copyBtn && copyBtn.textContent.includes('✅')) {
+        copyBtn.setAttribute('data-i18n', 'customer.copiedCode')
+      } else if (copyBtn) {
+        copyBtn.setAttribute('data-i18n', 'customer.copyCode')
+      }
+      langManager.applyTranslations()
+    })
+  })
+  
   setupDatePicker()
   setupPartySizeSelector()
   setupTableFilters()
@@ -508,9 +542,11 @@ function showBookingSuccess(code) {
   // Update final summary
   const finalSummary = document.getElementById('final-summary')
   finalSummary.innerHTML = `
-    <div class="summary-item">
-      <span class="summary-label">📅 Date</span>
-      <span class="summary-value">${formatDate(bookingData.date)}</span>
+    <divsetAttribute('data-i18n', 'customer.copiedCode')
+    langManager.applyTranslations()
+    setTimeout(() => {
+      btn.setAttribute('data-i18n', 'customer.copyCode')
+      langManager.applyTranslations()rmatDate(bookingData.date)}</span>
     </div>
     <div class="summary-item">
       <span class="summary-label">🕐 Time</span>

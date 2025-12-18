@@ -8,11 +8,17 @@
 </head>
 <body>
   <div class="dashboard">
+    <!-- Language Toggle -->
+    <div class="language-toggle">
+      <button class="lang-btn active" data-lang="en">EN</button>
+      <button class="lang-btn" data-lang="my">မြန်မာ</button>
+    </div>
+    
     <!-- Header -->
     <header class="header">
       <div class="header-left">
-        <a href="/" class="logo">🍽️ Creator Restaurant</a>
-        <span class="header-subtitle">Staff Dashboard</span>
+        <a href="/" class="logo" data-i18n="staff.header">🍽️ Creator Restaurant</a>
+        <span class="header-subtitle" data-i18n="staff.subtitle">Staff Dashboard</span>
       </div>
       <div class="header-center">
         <div class="current-time">
@@ -22,31 +28,31 @@
         </div>
       </div>
       <div class="header-right">
-        <button class="btn btn-back" id="back-btn" style="display: none;">← Back</button>
+        <button class="btn btn-back" id="back-btn" style="display: none;" data-i18n="staff.back">← Back</button>
       </div>
     </header>
 
     <!-- Action Selection (Main Menu) -->
     <section class="action-menu" id="action-menu">
-      <h1 class="menu-title">What would you like to do?</h1>
+      <h1 class="menu-title" data-i18n="staff.menuTitle">What would you like to do?</h1>
       
       <div class="action-cards">
         <div class="action-card" data-action="tables">
           <div class="action-icon">🪑</div>
-          <h3>View Tables</h3>
-          <p>See current table status, add walk-ins, and free tables</p>
+          <h3 data-i18n="staff.viewTables">View Tables</h3>
+          <p data-i18n="staff.viewTablesDesc">See current table status, add walk-ins, and free tables</p>
         </div>
         
         <div class="action-card" data-action="bookings">
           <div class="action-icon">📋</div>
-          <h3>Manage Bookings</h3>
-          <p>View, add phone bookings, or cancel reservations</p>
+          <h3 data-i18n="staff.manageBookings">Manage Bookings</h3>
+          <p data-i18n="staff.manageBookingsDesc">View, add phone bookings, or cancel reservations</p>
         </div>
         
         <div class="action-card" data-action="checkin">
           <div class="action-icon">✅</div>
-          <h3>Check-in Customer</h3>
-          <p>Enter booking code to check in arriving guests</p>
+          <h3 data-i18n="staff.checkin">Check-in Customer</h3>
+          <p data-i18n="staff.checkinDesc">Enter booking code to check in arriving guests</p>
         </div>
       </div>
     </section>
@@ -54,7 +60,7 @@
     <!-- View Tables Section -->
     <section class="view-section" id="tables-view" style="display: none;">
       <div class="section-header">
-        <h2>📊 Table Overview - <span id="tables-date"></span></h2>
+        <h2><span data-i18n="staff.tableOverview">📊 Table Overview -</span> <span id="tables-date"></span></h2>
         <div class="header-actions">
           <button class="date-btn" id="tables-prev-day">◀</button>
           <input type="date" id="tables-date-input">
@@ -66,27 +72,27 @@
       <div class="stats-bar">
         <div class="stat-item">
           <span class="stat-value" id="stat-available">0</span>
-          <span class="stat-label">Available</span>
+          <span class="stat-label" data-i18n="staff.statAvailable">Available</span>
         </div>
         <div class="stat-item">
           <span class="stat-value" id="stat-booked">0</span>
-          <span class="stat-label">Booked</span>
+          <span class="stat-label" data-i18n="staff.statBooked">Booked</span>
         </div>
         <div class="stat-item">
           <span class="stat-value" id="stat-occupied">0</span>
-          <span class="stat-label">Occupied</span>
+          <span class="stat-label" data-i18n="staff.statOccupied">Occupied</span>
         </div>
         <div class="stat-item">
           <span class="stat-value" id="stat-occupancy">0%</span>
-          <span class="stat-label">Occupancy</span>
+          <span class="stat-label" data-i18n="staff.statOccupancy">Occupancy</span>
         </div>
       </div>
 
       <div class="table-legend">
-        <span class="legend-item"><span class="dot available"></span> Available</span>
-        <span class="legend-item"><span class="dot booked"></span> Booked</span>
-        <span class="legend-item"><span class="dot" style="background: var(--checked-in);"></span> Checked In</span>
-        <span class="legend-item"><span class="dot" style="background: var(--occupied);"></span>⚠️ Overdue (15+ mins)</span>
+        <span class="legend-item"><span class="dot available"></span> <span data-i18n="staff.legendAvailable">Available</span></span>
+        <span class="legend-item"><span class="dot booked"></span> <span data-i18n="staff.legendBooked">Booked</span></span>
+        <span class="legend-item"><span class="dot" style="background: var(--checked-in);"></span> <span data-i18n="staff.legendCheckedIn">Checked In</span></span>
+        <span class="legend-item"><span class="dot" style="background: var(--occupied);"></span> <span data-i18n="staff.legendOverdue">⚠️ Overdue (15+ mins)</span></span>
       </div>
 
       <div class="tables-grid" id="tables-grid">
@@ -97,16 +103,16 @@
     <!-- Manage Bookings Section -->
     <section class="view-section" id="bookings-view" style="display: none;">
       <div class="section-header">
-        <h2>📋 Manage Bookings</h2>
-        <button class="btn btn-primary" id="add-booking-btn">+ Add Phone Booking</button>
+        <h2 data-i18n="staff.manageBookingsTitle">📋 Manage Bookings</h2>
+        <button class="btn btn-primary" id="add-booking-btn" data-i18n="staff.addBooking">+ Add Phone Booking</button>
       </div>
 
       <!-- Search/Filter -->
       <div class="search-bar">
-        <input type="date" id="booking-filter-date" placeholder="Filter by date">
-        <input type="text" id="booking-filter-name" placeholder="Search by name">
-        <input type="text" id="booking-filter-code" placeholder="Search by booking code">
-        <button class="btn btn-secondary" id="clear-filters-btn">Clear</button>
+        <input type="date" id="booking-filter-date" data-i18n="staff.filterDate" placeholder="Filter by date">
+        <input type="text" id="booking-filter-name" data-i18n="staff.searchName" placeholder="Search by name">
+        <input type="text" id="booking-filter-code" data-i18n="staff.searchCode" placeholder="Search by booking code">
+        <button class="btn btn-secondary" id="clear-filters-btn" data-i18n="staff.clearFilters">Clear</button>
       </div>
 
       <div class="bookings-list" id="bookings-list">
@@ -118,12 +124,12 @@
     <section class="view-section" id="checkin-view" style="display: none;">
       <div class="checkin-container">
         <div class="checkin-icon">✅</div>
-        <h2>Customer Check-in</h2>
-        <p class="checkin-description">Enter the booking code shown by the customer</p>
+        <h2 data-i18n="staff.checkinTitle">Customer Check-in</h2>
+        <p class="checkin-description" data-i18n="staff.checkinDesc">Enter the booking code shown by the customer</p>
         
         <div class="code-input-container">
-          <input type="text" id="checkin-code" placeholder="Enter booking code" autocomplete="off">
-          <button class="btn btn-primary btn-lg" id="verify-code-btn">Verify Code</button>
+          <input type="text" id="checkin-code" data-i18n="staff.enterCode" placeholder="Enter booking code" autocomplete="off">
+          <button class="btn btn-primary btn-lg" id="verify-code-btn" data-i18n="staff.verifyCode">Verify Code</button>
         </div>
 
         <div class="booking-details-card" id="booking-details-card" style="display: none;">
@@ -135,20 +141,20 @@
     <!-- Walk-in Modal -->
     <div class="modal" id="walkin-modal" style="display: none;">
       <div class="modal-content">
-        <h3>Add Walk-in Customer</h3>
-        <p>Table <span id="walkin-table-number"></span></p>
+        <h3 data-i18n="staff.walkinTitle">Add Walk-in Customer</h3>
+        <p><span data-i18n="staff.walkinTable">Table</span> <span id="walkin-table-number"></span></p>
         <form id="walkin-form">
           <div class="form-group">
-            <label for="walkin-name">Customer Name (optional)</label>
-            <input type="text" id="walkin-name" placeholder="Walk-in customer">
+            <label for="walkin-name" data-i18n="staff.walkinName">Customer Name (optional)</label>
+            <input type="text" id="walkin-name" data-i18n="staff.walkinNamePlaceholder" placeholder="Walk-in customer">
           </div>
           <div class="form-group">
-            <label for="walkin-party">Party Size *</label>
+            <label for="walkin-party" data-i18n="staff.walkinParty">Party Size *</label>
             <input type="number" id="walkin-party" min="1" max="20" value="2" required>
           </div>
           <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" id="walkin-cancel">Cancel</button>
-            <button type="submit" class="btn btn-primary">Confirm Walk-in</button>
+            <button type="button" class="btn btn-secondary" id="walkin-cancel" data-i18n="staff.walkinCancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" data-i18n="staff.walkinConfirm">Confirm Walk-in</button>
           </div>
         </form>
       </div>
@@ -157,13 +163,13 @@
     <!-- Quick Check-in Modal -->
     <div class="modal" id="quick-checkin-modal" style="display: none;">
       <div class="modal-content">
-        <h3>✅ Check-in Customer</h3>
+        <h3 data-i18n="staff.quickCheckinTitle">✅ Check-in Customer</h3>
         <div id="quick-checkin-details" class="booking-info">
           <!-- Details will be populated -->
         </div>
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" id="quick-checkin-cancel">Cancel</button>
-          <button type="button" class="btn btn-primary" id="quick-checkin-confirm">Confirm Check-in</button>
+          <button type="button" class="btn btn-secondary" id="quick-checkin-cancel" data-i18n="staff.walkinCancel">Cancel</button>
+          <button type="button" class="btn btn-primary" id="quick-checkin-confirm" data-i18n="staff.quickCheckinConfirm">Confirm Check-in</button>
         </div>
       </div>
     </div>
@@ -171,13 +177,13 @@
     <!-- Free Table Modal -->
     <div class="modal" id="free-table-modal" style="display: none;">
       <div class="modal-content">
-        <h3>🏁 Free Table</h3>
+        <h3 data-i18n="staff.freeTableTitle">🏁 Free Table</h3>
         <div id="free-table-details" class="booking-info">
           <!-- Details will be populated -->
         </div>
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" id="free-table-cancel">Cancel</button>
-          <button type="button" class="btn btn-primary" id="free-table-confirm">Complete & Free Table</button>
+          <button type="button" class="btn btn-secondary" id="free-table-cancel" data-i18n="staff.walkinCancel">Cancel</button>
+          <button type="button" class="btn btn-primary" id="free-table-confirm" data-i18n="staff.freeTableConfirm">Complete & Free Table</button>
         </div>
       </div>
     </div>
@@ -185,13 +191,13 @@
     <!-- Overdue Booking Modal -->
     <div class="modal" id="overdue-booking-modal" style="display: none;">
       <div class="modal-content">
-        <h3>⚠️ Overdue Booking</h3>
+        <h3 data-i18n="staff.overdueTitle">⚠️ Overdue Booking</h3>
         <div id="overdue-booking-details" class="booking-info">
           <!-- Details will be populated -->
         </div>
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" id="overdue-cancel">Close</button>
-          <button type="button" class="btn btn-danger" id="overdue-cancel-booking">Cancel Booking</button>
+          <button type="button" class="btn btn-secondary" id="overdue-cancel" data-i18n="staff.close">Close</button>
+          <button type="button" class="btn btn-danger" id="overdue-cancel-booking" data-i18n="staff.overdueCancel">Cancel Booking</button>
         </div>
       </div>
     </div>
@@ -274,7 +280,7 @@
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loading" style="display: none;">
       <div class="spinner"></div>
-      <p>Processing...</p>
+      <p data-i18n="staff.loading">Processing...</p>
     </div>
 
     <!-- Toast Notification -->
